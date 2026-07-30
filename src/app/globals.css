@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --primary: 0 84% 60%;
+    --primary-foreground: 0 0% 100%;
+    --border: 240 5.9% 90%;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 7%;
+    --card-foreground: 0 0% 98%;
+    --primary: 0 84% 60%;
+    --primary-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+  }
+}
+
+body {
+  @apply bg-white text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-50;
+  font-feature-settings: "rlum" 1, "calt" 1;
+}
+
+/* Custom Scrollbar for Chat Window */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(161, 161, 170, 0.35);
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(161, 161, 170, 0.6);
+}
+
+/* Typing cursor indicator for streaming message */
+.typing-cursor::after {
+  content: "▋";
+  animation: blink 1s steps(2, start) infinite;
+  @apply text-brand-500 font-bold ml-0.5;
+}
+
+@keyframes blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+/* Subtle red glow animation for floating button */
+@keyframes redGlow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(220, 38, 38, 0.4), 0 8px 32px rgba(220, 38, 38, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(220, 38, 38, 0.6), 0 8px 40px rgba(220, 38, 38, 0.35);
+  }
+}
+
+.glow-red {
+  animation: redGlow 2.5s ease-in-out infinite;
+}
