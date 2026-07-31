@@ -49,8 +49,7 @@ function LoginForm() {
           setError(res.error || 'Email hoặc Mật khẩu không chính xác.');
         }
       } else {
-        router.push(callbackUrl);
-        router.refresh();
+        window.location.href = callbackUrl;
       }
     } catch (err: any) {
       setError('Đã xảy ra lỗi khi đăng nhập. Vui lòng thử lại.');
