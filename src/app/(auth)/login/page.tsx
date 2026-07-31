@@ -30,7 +30,15 @@ function LoginForm() {
       });
 
       if (res?.error) {
-        setError(res.error || 'Email hoặc Mật khẩu không chính xác.');
+        if (res.error === 'Configuration' || res.error === 'ConfigurationError') {
+          setError('Lỗi cấu hình hệ thống (NextAuth). Hãy kiểm tra lại biến môi trường AUTH_SECRET, AUTH_TRUST_HOST và MONGODB_URI trên Vercel.');
+        } else if (res.error === 'CredentialsSignin' || res.error === 'CredentialsSigninError') {
+          setError('Email hoặc Mật khẩu không chính xác.');
+        } else if (res.error === 'AccessDenied') {
+          setError('Tài khoản bị từ chối truy cập.');
+        } else {
+          setError(res.error || 'Email hoặc Mật khẩu không chính xác.');
+        }
       } else {
         router.push(callbackUrl);
         router.refresh();

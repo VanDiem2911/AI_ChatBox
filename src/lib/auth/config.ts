@@ -5,6 +5,7 @@ import { connectToDatabase } from '@/lib/mongodb/mongoose';
 import User from '@/models/User';
 
 export const authConfig: NextAuthConfig = {
+  trustHost: true,
   providers: [
     Credentials({
       name: 'Credentials',
@@ -17,11 +18,37 @@ export const authConfig: NextAuthConfig = {
           throw new Error('Vui lòng nhập đầy đủ Email và Mật khẩu.');
         }
 
-        await connectToDatabase();
+        try {
+          await connectToDatabase();
+        } catch (dbErr: any) {
+          console.error('Database connection error during login:', dbErr);
+          throw new Error('Không thể kết nối đến cơ sở dữ liệu MongoDB. Vui lòng kiểm tra MONGODB_URI.');
+        }
 
-        const user = await User.findOne({
-          email: (credentials.email as string).toLowerCase(),
+        const inputEmail = (credentials.email as string).toLowerCase();
+
+        let user = await User.findOne({
+          email: inputEmail,
         }).select('+passwordHash');
+
+        // Auto-seed default admin if trying to log in as admin and user doesn't exist yet
+        if (!user && (inputEmail === 'admin@dudisoftware.com' || inputEmail === 'admin@smartconsult.ai')) {
+          try {
+            const adminPass = process.env.ADMIN_PASSWORD || 'AdminSecurePass123!';
+            const salt = await bcrypt.genSalt(10);
+            const passwordHash = await bcrypt.hash(adminPass, salt);
+            user = await User.create({
+              name: 'DUDI Administrator',
+              email: inputEmail,
+              passwordHash,
+              role: 'ADMIN',
+              status: 'ACTIVE',
+            });
+            console.log(`[Auth] Auto-created default admin user: ${inputEmail}`);
+          } catch (seedErr) {
+            console.error('Failed to auto-create default admin user:', seedErr);
+          }
+        }
 
         if (!user || !user.passwordHash) {
           throw new Error('Email hoặc Mật khẩu không chính xác.');
@@ -73,5 +100,6 @@ export const authConfig: NextAuthConfig = {
     strategy: 'jwt',
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
-  secret: process.env.AUTH_SECRET || 'fallback-super-secret-key-32-chars-minimum',
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || 'fallback-super-secret-key-32-chars-minimum',
 };
+
