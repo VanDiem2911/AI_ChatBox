@@ -12,6 +12,7 @@ export async function middleware(request: NextRequest) {
     const token = await getToken({
       req: request,
       secret,
+      secureCookie: request.nextUrl.protocol === 'https:',
     } as any);
 
     if (!token) {
@@ -43,5 +44,4 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: ['/admin/:path*', '/api/admin/:path*'],
 };
-
 
