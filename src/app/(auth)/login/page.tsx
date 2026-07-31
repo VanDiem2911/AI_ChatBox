@@ -9,7 +9,16 @@ import { Bot, Lock, Mail, AlertCircle, ArrowLeft, Zap, ShieldCheck } from 'lucid
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get('callbackUrl') || '/admin';
+  const rawCallback = searchParams.get('callbackUrl') || '/admin';
+  let callbackUrl = rawCallback;
+  try {
+    callbackUrl = decodeURIComponent(rawCallback);
+  } catch (e) {
+    callbackUrl = '/admin';
+  }
+  if (!callbackUrl.startsWith('/')) {
+    callbackUrl = '/admin';
+  }
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
