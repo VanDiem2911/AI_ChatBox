@@ -7,10 +7,11 @@ import { IMessageDocument } from '@/types';
 
 interface ChatWindowProps {
   onClose?: () => void;
+  onNewChat?: () => void;
   anonymousSessionId: string;
 }
 
-export const ChatWindow: React.FC<ChatWindowProps> = ({ onClose, anonymousSessionId }) => {
+export const ChatWindow: React.FC<ChatWindowProps> = ({ onClose, onNewChat, anonymousSessionId }) => {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Partial<IMessageDocument>[]>([]);
   const [input, setInput] = useState('');
@@ -73,20 +74,24 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ onClose, anonymousSessio
     handleStopStream();
     setMessages([]);
     setError(null);
-    try {
-      const res = await fetch('/api/chat/conversations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          anonymousSessionId: `${anonymousSessionId}_${Date.now()}`,
-        }),
-      });
-      const data = await res.json();
-      if (data.success && data.data) {
-        setConversationId(data.data._id);
+    if (onNewChat) {
+      onNewChat();
+    } else {
+      try {
+        const res = await fetch('/api/chat/conversations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            anonymousSessionId: `${anonymousSessionId}_${Date.now()}`,
+          }),
+        });
+        const data = await res.json();
+        if (data.success && data.data) {
+          setConversationId(data.data._id);
+        }
+      } catch (err) {
+        setError('Lỗi khi tạo cuộc hội thoại mới.');
       }
-    } catch (err) {
-      setError('Lỗi khi tạo cuộc hội thoại mới.');
     }
   };
 

@@ -1188,18 +1188,41 @@ Bạn cần tôi hỗ trợ tư vấn thêm thông tin gì không ạ?`;
       }
 
       if (!geminiResult) {
-        throw new Error(`All Gemini chat models failed: ${GEMINI_FALLBACK_MODELS.join(', ')}`);
-      }
+        console.warn('[Gemini Online Stream Failed - Using Local Knowledge Engine Fallback]');
+        const getLocalFallbackText = () => {
+          const userMsgLower = validated.content.toLowerCase().trim();
+          const isIdentityQuery = /bạn là ai|ban la ai|bạn tên gì|ban ten gi|ai đó|ai do|who are you/i.test(userMsgLower);
+          const isContactOrServiceQuery = /dịch vụ|dich vu|địa chỉ|dia chi|văn phòng|van phong|số điện thoại|so dien thoai|hotline|sđt|sdt|email|liên hệ|lien he|ở đâu|o dau|trụ sở|tru so|liên lạc|lien lac/i.test(userMsgLower);
+          const isProjectQuery = /dự án|du an|mẫu|mau|danh mục|danh muc|xem|ô tô|o to|du lịch|du lich|bất động sản|bat dong san|bán hàng|ban hang|studio/i.test(userMsgLower);
 
-      responseStream = new ReadableStream({
-        async start(controller) {
-          try {
-            for await (const chunk of geminiResult.stream) {
-              const text = chunk.text();
-              if (text) {
-                fullAssistantContent += text;
-                controller.enqueue(encoder.encode(text));
-              }
+          if (isContactOrServiceQuery || (!isProjectQuery && (userMsgLower.includes('dudi') || userMsgLower.includes('công ty')))) {
+            return `**CÔNG TY DUDI SOFTWARE** chuyên cung cấp các giải pháp công nghệ và thiết kế website / mobile app chuyên nghiệp:\n\n### 🚀 Các Dịch Vụ Chính Tại DUDI SOFTWARE:\n1. **Phát triển Web & Phần mềm Doanh nghiệp**: Website chuẩn SEO, E-Commerce, Portal, hệ thống ERP/CRM.\n2. **Phát triển Ứng dụng Di động (Mobile App)**: Ứng dụng iOS & Android đa nền tảng.\n3. **Thiết kế UI/UX Chuyên nghiệp**: Giao diện tinh tế, hiện đại, tối ưu trải nghiệm người dùng.\n4. **AI & Chatbot RAG Thông minh**: Tự động hóa tư vấn & chăm sóc khách hàng 24/7.\n5. **Bảo trì & Hỗ trợ Kỹ thuật 24/7**: Đội ngũ trực khẩn cấp 24/7, bảo trì hệ thống định kỳ.\n\n---\n### 📍 Thông Tin Liên Hệ Văn Phòng DUDI SOFTWARE:\n- 🏢 **Địa chỉ 1**: 232 Đường Nguyễn Thị Minh Khai, Phường Xuân Hòa, TP. Hồ Chí Minh\n- 🏢 **Địa chỉ 2**: 49/2 Đường 14, Phường Thủ Đức, TP. Hồ Chí Minh\n- 📞 **Hotline / SĐT**: **(+84) 909 163 821**\n- ✉️ **Email tiếp nhận**: **contact@dudisoftware.com**\n- 🌐 **Website chính thức**: [https://www.dudisoftware.com/](https://www.dudisoftware.com/)\n\nBạn cần tôi tư vấn chi tiết hơn về gói dịch vụ nào hay muốn tham khảo kho 400+ dự án thực tế của DUDI Software không ạ?`;
+          }
+
+          if (isIdentityQuery) {
+            return `Xin chào! Tôi là Trợ lý AI tư vấn khách hàng chính thức của **DUDI SOFTWARE**.\n\nTôi ở đây để hỗ trợ tư vấn cho bạn các dịch vụ của DUDI Software bao gồm:\n- **Phát triển Web & Phần mềm Doanh nghiệp**\n- **Ứng dụng Di động (Mobile App)** trên iOS & Android\n- **Thiết kế UI/UX** tinh tế, tối ưu trải nghiệm người dùng\n- **AI & Chatbot RAG** tự động hóa chăm sóc khách hàng 24/7\n\nHotline hỗ trợ: (+84) 909 163 821. Bạn cần tôi hỗ trợ thêm thông tin gì không ạ?`;
+          }
+
+          if (relevantChunks.length > 0 && (intent.type === 'project_examples' || /dự án|du an|mẫu|mau|link|ví dụ|vi du|sản phẩm|san pham/i.test(userMsgLower))) {
+            const projectsList = extractProjectsFromKnowledge(relevantChunks, searchQuery);
+            if (projectsList.length > 0) {
+              const formatted = projectsList.slice(0, 5).map((p, idx) => `### 🔹 ${idx + 1}. Dự án ${p.title}\n- 🌐 **Website**: [${p.url}](${p.url})\n- 📝 **Mô tả chi tiết**: ${p.description}`).join('\n\n');
+              const topicHeader = projectTopicLabel ? `Dưới đây là một số dự án **${projectTopicLabel}** tiêu biểu mà DUDI SOFTWARE đã triển khai:` : `Dưới đây là các dự án tiêu biểu từ **DUDI SOFTWARE** phù hợp với nhu cầu của anh/chị:`;
+              return `${topicHeader}\n\n${formatted}\n\n---\nAnh/chị muốn tham khảo thêm dự án khác hoặc tư vấn chi tiết, vui lòng cho em biết ạ.`;
+            }
+          }
+
+          return 'Dạ, em là DU - Trợ lý AI của DUDI Software. Em có thể giúp gì cho anh/chị hôm nay về dịch vụ thiết kế website, ứng dụng di động hay tư vấn các dự án phần mềm ạ?';
+        };
+
+        const fallbackText = getLocalFallbackText();
+        responseStream = new ReadableStream({
+          async start(controller) {
+            const words = fallbackText.split(' ');
+            for (let i = 0; i < words.length; i++) {
+              const piece = (i === 0 ? '' : ' ') + words[i];
+              controller.enqueue(encoder.encode(piece));
+              await new Promise((res) => setTimeout(res, 15));
             }
             controller.close();
 
@@ -1207,8 +1230,8 @@ Bạn cần tôi hỗ trợ tư vấn thêm thông tin gì không ạ?`;
             const assistantMsg = await ConversationService.createMessage({
               conversationId,
               role: 'ASSISTANT',
-              content: fullAssistantContent,
-              model: selectedGeminiModel,
+              content: fallbackText,
+              model: 'gemini-fallback',
               references,
             });
 
@@ -1217,19 +1240,56 @@ Bạn cần tôi hỗ trợ tư vấn thêm thông tin gì không ạ?`;
               conversationId,
               messageId: assistantMsg._id,
               provider: activeProvider,
-              model: selectedGeminiModel,
+              model: 'gemini-fallback',
               inputTokens: 0,
               outputTokens: 0,
               totalTokens: 0,
               responseTimeMs,
               success: true,
             });
-          } catch (streamError: any) {
-            console.error('[Gemini Stream Processing Error]:', streamError);
-            controller.error(streamError);
-          }
-        },
-      });
+          },
+        });
+      } else {
+        responseStream = new ReadableStream({
+          async start(controller) {
+            try {
+              for await (const chunk of geminiResult.stream) {
+                const text = chunk.text();
+                if (text) {
+                  fullAssistantContent += text;
+                  controller.enqueue(encoder.encode(text));
+                }
+              }
+              controller.close();
+
+              const responseTimeMs = Date.now() - startTime;
+              const assistantMsg = await ConversationService.createMessage({
+                conversationId,
+                role: 'ASSISTANT',
+                content: fullAssistantContent,
+                model: selectedGeminiModel,
+                references,
+              });
+
+              await connectToDatabase();
+              await AiUsageLog.create({
+                conversationId,
+                messageId: assistantMsg._id,
+                provider: activeProvider,
+                model: selectedGeminiModel,
+                inputTokens: 0,
+                outputTokens: 0,
+                totalTokens: 0,
+                responseTimeMs,
+                success: true,
+              });
+            } catch (streamError: any) {
+              console.error('[Gemini Stream Processing Error]:', streamError);
+              controller.error(streamError);
+            }
+          },
+        });
+      }
     } else {
       // -------------------------------------------------------------
       // OPENAI STREAMING

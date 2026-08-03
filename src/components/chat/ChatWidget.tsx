@@ -4,31 +4,47 @@ import React, { useState, useEffect } from 'react';
 import { MessageSquare, X, Sparkles } from 'lucide-react';
 import { ChatWindow } from './ChatWindow';
 
+const SESSION_STORAGE_KEY = 'dudi_chat_anonymous_session_id';
+
 export const ChatWidget: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [anonymousSessionId, setAnonymousSessionId] = useState<string>('');
 
-  const handleToggleOpen = () => {
-    const nextOpen = !isOpen;
-    if (nextOpen) {
-      // Create a brand new session every time the user opens/enters the conversation
-      const newSessionId = `sess_${Math.random().toString(36).substring(2, 11)}_${Date.now()}`;
-      setAnonymousSessionId(newSessionId);
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      let storedId = sessionStorage.getItem(SESSION_STORAGE_KEY);
+      if (!storedId) {
+        storedId = `sess_${Math.random().toString(36).substring(2, 11)}_${Date.now()}`;
+        sessionStorage.setItem(SESSION_STORAGE_KEY, storedId);
+      }
+      setAnonymousSessionId(storedId);
     }
-    setIsOpen(nextOpen);
+  }, []);
+
+  const handleToggleOpen = () => {
+    setIsOpen((prev) => !prev);
+  };
+
+  const handleResetSession = () => {
+    const newId = `sess_${Math.random().toString(36).substring(2, 11)}_${Date.now()}`;
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(SESSION_STORAGE_KEY, newId);
+    }
+    setAnonymousSessionId(newId);
   };
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
-      {/* Chat Window Popup */}
-      {isOpen && anonymousSessionId && (
-        <div className="mb-4 animate-slide-up">
+      {/* Chat Window Popup - Keep mounted to preserve message history during session */}
+      <div className={`mb-4 animate-slide-up ${isOpen ? '' : 'hidden'}`}>
+        {anonymousSessionId && (
           <ChatWindow
             anonymousSessionId={anonymousSessionId}
             onClose={() => setIsOpen(false)}
+            onNewChat={handleResetSession}
           />
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Floating Action Trigger Button - Red DUDI style */}
       <button
