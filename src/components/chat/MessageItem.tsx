@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Bot, User, ThumbsUp, ThumbsDown, Headset, BookOpen, AlertTriangle } from 'lucide-react';
+import { User, ThumbsUp, ThumbsDown, Headset, BookOpen, AlertTriangle } from 'lucide-react';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { IMessageDocument } from '@/types';
+import { DudiLogo } from '@/components/common/DudiLogo';
 
 interface MessageItemProps {
   message: Partial<IMessageDocument>;
@@ -36,15 +37,13 @@ export const MessageItem: React.FC<MessageItemProps> = ({
       }`}
     >
       {/* Avatar Icon */}
-      <div
-        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-sm ${
-          isUser
-            ? 'bg-brand-600 text-white'
-            : 'bg-white border border-zinc-200 text-brand-500'
-        }`}
-      >
-        {isUser ? <User className="w-4.5 h-4.5" /> : <Bot className="w-4.5 h-4.5" />}
-      </div>
+      {isUser ? (
+        <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-sm bg-brand-600 text-white">
+          <User className="w-4.5 h-4.5" />
+        </div>
+      ) : (
+        <DudiLogo className="w-8 h-8 rounded-full shadow-sm" />
+      )}
 
       {/* Message Bubble */}
       <div className="flex flex-col max-w-[85%] sm:max-w-[78%]">

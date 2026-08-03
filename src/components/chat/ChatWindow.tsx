@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Square, RotateCcw, PlusCircle, X, Bot, AlertCircle } from 'lucide-react';
+import { Send, Square, RotateCcw, PlusCircle, X, AlertCircle } from 'lucide-react';
 import { MessageItem } from './MessageItem';
 import { IMessageDocument } from '@/types';
+import { DudiLogo } from '@/components/common/DudiLogo';
 
 interface ChatWindowProps {
   onClose?: () => void;
@@ -206,9 +207,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ onClose, onNewChat, anon
       {/* Header - Red gradient */}
       <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-brand-600 to-brand-700 border-b border-brand-700">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur flex items-center justify-center text-white shadow-sm">
-            <Bot className="w-5 h-5" />
-          </div>
+          <DudiLogo className="w-8 h-8 rounded-lg shadow-sm border border-white/20" />
           <div>
             <h3 className="font-semibold text-sm text-white tracking-tight">DUDI SOFTWARE AI</h3>
             <p className="text-[11px] text-white/80 flex items-center gap-1">
@@ -242,9 +241,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ onClose, onNewChat, anon
       <div className="flex-1 p-4 overflow-y-auto custom-scrollbar bg-zinc-50 space-y-2">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-6 text-zinc-500 space-y-3">
-            <div className="w-14 h-14 rounded-2xl bg-brand-50 border border-brand-200 flex items-center justify-center text-brand-500">
-              <Bot className="w-7 h-7" />
-            </div>
+            <DudiLogo className="w-14 h-14 rounded-2xl shadow-md border border-brand-200" />
             <p className="text-sm font-semibold text-zinc-800">
               Xin chào! Tôi là Trợ lý AI DUDI SOFTWARE.
             </p>

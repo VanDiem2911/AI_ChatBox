@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { Bot, ShieldCheck, Database, MessageSquare, Sparkles, Headset } from 'lucide-react';
+import { ShieldCheck, Database, MessageSquare, Sparkles, Headset } from 'lucide-react';
 import { ChatWidget } from '@/components/chat/ChatWidget';
+import { DudiLogo } from '@/components/common/DudiLogo';
 
 export default function HomePage() {
   return (
@@ -9,9 +10,7 @@ export default function HomePage() {
       <header className="border-b border-zinc-200/80 bg-white/80 backdrop-blur-xl sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-brand-600 rounded-xl text-white shadow-md shadow-brand-600/30">
-              <Bot className="w-6 h-6" />
-            </div>
+            <DudiLogo className="w-9 h-9" />
             <span className="font-extrabold text-xl tracking-tight text-zinc-900">
               DUDI SOFTWARE <span className="text-brand-600">AI</span>
             </span>

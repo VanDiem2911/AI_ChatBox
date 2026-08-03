@@ -7,6 +7,11 @@ const inter = Inter({ subsets: ['latin', 'vietnamese'] });
 export const metadata: Metadata = {
   title: 'DUDI SOFTWARE AI - Hệ thống Chatbot Tư vấn Khách hàng Doanh nghiệp',
   description: 'Trợ lý AI tư vấn dịch vụ phần mềm, thiết kế website, ứng dụng di động và dự án của DUDI SOFTWARE.',
+  icons: {
+    icon: '/favicon.svg',
+    shortcut: '/favicon.svg',
+    apple: '/favicon.svg',
+  },
 };
 
 export default function RootLayout({
