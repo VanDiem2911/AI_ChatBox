@@ -1,8 +1,7 @@
 const domainInquiryPatterns = [
-  /\blinh\s*vuc\b/,
-  /\bnganh\b/,
-  /\bnganh\s*nghe\b/,
-  /\bmang\b/,
+  /\b(cac|nhung|co\s*nhung|lam\s*nhung|ho\s*tro)\s*(nganh|linh\s*vuc|mang)\b/,
+  /\b(nganh|linh\s*vuc|mang)\s*(nao|gi|chinh)\b/,
+  /\bnganh\s*nghe\s*(nao|gi|ho\s*tro|lam)\b/,
   /\bdanh\s*muc\s*(nganh|linh\s*vuc|dich\s*vu)\b/,
   /\bsan\s*pham\b.*\b(nao|gi|linh\s*vuc|nganh)\b/,
   /\bben\s*(ban|minh)\b.*\b(lam|co|cung\s*cap)\b.*\b(gi|nao)\b/,

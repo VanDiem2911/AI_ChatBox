@@ -3,6 +3,7 @@ import KnowledgeDocument from '@/models/KnowledgeDocument';
 import KnowledgeChunk from '@/models/KnowledgeChunk';
 import { splitTextIntoChunks, cleanContent } from './chunker';
 import { generateBatchEmbeddings } from '@/lib/ai/embeddings';
+import { DocumentSourceType } from '@/types';
 
 export class KnowledgeService {
   /**
@@ -11,7 +12,7 @@ export class KnowledgeService {
   static async createDocument(data: {
     title: string;
     content: string;
-    sourceType?: 'TEXT' | 'PDF' | 'FAQ' | 'URL';
+    sourceType?: DocumentSourceType;
     sourceName?: string;
     category: string;
     tags?: string[];

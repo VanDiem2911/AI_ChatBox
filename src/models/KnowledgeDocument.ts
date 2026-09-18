@@ -9,7 +9,7 @@ const KnowledgeDocumentSchema = new Schema<IKnowledgeDocumentModel>(
     content: { type: String, required: true },
     sourceType: {
       type: String,
-      enum: ['TEXT', 'PDF', 'FAQ', 'URL'],
+      enum: ['TEXT', 'PDF', 'FAQ', 'URL', 'DOCX'],
       default: 'TEXT',
     },
     sourceName: { type: String },
@@ -32,6 +32,11 @@ const KnowledgeDocumentSchema = new Schema<IKnowledgeDocumentModel>(
 );
 
 KnowledgeDocumentSchema.index({ status: 1, category: 1 });
+
+// Refresh model on reload to ensure newly added enum values (like DOCX) take effect immediately
+if ((mongoose.models as any)?.KnowledgeDocument) {
+  delete (mongoose.models as any).KnowledgeDocument;
+}
 
 const KnowledgeDocument: Model<IKnowledgeDocumentModel> =
   mongoose.models.KnowledgeDocument ||

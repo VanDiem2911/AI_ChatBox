@@ -10,15 +10,20 @@ export class ConversationService {
    */
   static async getOrCreateConversation(
     anonymousSessionId: string,
-    userId?: string
+    userId?: string,
+    createNew = false
   ) {
     await connectToDatabase();
 
-    // Tìm conversation AI_ACTIVE gần nhất của session
-    let conversation = await Conversation.findOne({
-      anonymousSessionId,
-      status: 'AI_ACTIVE',
-    }).sort({ lastMessageAt: -1 });
+    let conversation = null;
+
+    if (!createNew) {
+      // Tìm conversation AI_ACTIVE gần nhất của session
+      conversation = await Conversation.findOne({
+        anonymousSessionId,
+        status: 'AI_ACTIVE',
+      }).sort({ lastMessageAt: -1 });
+    }
 
     if (!conversation) {
       conversation = await Conversation.create({
@@ -31,6 +36,17 @@ export class ConversationService {
     }
 
     return conversation;
+  }
+
+  /**
+   * Lấy danh sách các cuộc trò chuyện thuộc về Session
+   */
+  static async getConversationsBySession(anonymousSessionId: string, limit = 30) {
+    await connectToDatabase();
+    return Conversation.find({ anonymousSessionId })
+      .sort({ lastMessageAt: -1 })
+      .limit(limit)
+      .lean();
   }
 
   /**
@@ -81,10 +97,18 @@ export class ConversationService {
 
     const message = await Message.create(data);
 
-    // Cập nhật lastMessageAt của conversation
-    await Conversation.findByIdAndUpdate(data.conversationId, {
-      lastMessageAt: new Date(),
-    });
+    const updateData: any = { lastMessageAt: new Date() };
+
+    // Nếu là tin nhắn đầu tiên của user, tự động đặt tiêu đề cho cuộc hội thoại dựa theo nội dung
+    if (data.role === 'USER') {
+      const conv = await Conversation.findById(data.conversationId).select('title').lean();
+      if (!conv || conv.title === 'Cuộc trò chuyện mới' || !conv.title) {
+        const cleanText = data.content.trim().replace(/\n+/g, ' ');
+        updateData.title = cleanText.slice(0, 35) + (cleanText.length > 35 ? '...' : '');
+      }
+    }
+
+    await Conversation.findByIdAndUpdate(data.conversationId, updateData);
 
     return message;
   }

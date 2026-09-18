@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const createConversationSchema = z.object({
   anonymousSessionId: z.string().min(1, 'Session ID không được để trống'),
   title: z.string().optional(),
+  createNew: z.boolean().optional(),
 });
 
 export const sendMessageSchema = z.object({
@@ -33,7 +34,7 @@ export const createTicketSchema = z.object({
 export const knowledgeDocumentSchema = z.object({
   title: z.string().trim().min(3, 'Tiêu đề ít nhất 3 ký tự'),
   content: z.string().trim().min(10, 'Nội dung ít nhất 10 ký tự'),
-  sourceType: z.enum(['TEXT', 'PDF', 'FAQ', 'URL']).default('TEXT'),
+  sourceType: z.enum(['TEXT', 'PDF', 'FAQ', 'URL', 'DOCX']).default('TEXT'),
   sourceName: z.string().optional(),
   category: z.string().trim().min(1, 'Danh mục không được để trống'),
   tags: z.array(z.string()).default([]),

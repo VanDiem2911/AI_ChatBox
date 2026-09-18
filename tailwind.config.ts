@@ -30,6 +30,16 @@ const config: Config = {
           border: '#27272a',
           text: '#fafafa',
           muted: '#a1a1aa',
+        },
+        chatgpt: {
+          main: '#212121',
+          sidebar: '#171717',
+          input: '#2f2f2f',
+          hover: '#2f2f2f',
+          border: '#2f2f2f',
+          text: '#ececec',
+          muted: '#b4b4b4',
+          subtle: '#8e8e8e',
         }
       },
       animation: {

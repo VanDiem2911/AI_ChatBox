@@ -181,10 +181,15 @@ export function isPricingOrMoneyInquiry(message: string): boolean {
 
 export function getPricingHandoffResponse(): string {
   return [
-    'Cảm ơn anh/chị đã quan tâm.',
-    'Về báo giá, chi phí hoặc các vấn đề thanh toán, em chưa thể tư vấn trực tiếp trên chat.',
-    'Anh/chị vui lòng để lại số điện thoại, nhân viên DUDI Software sẽ liên hệ để tư vấn và báo giá chính xác theo nhu cầu ạ.',
-  ].join(' ');
+    'Dạ, DUDI Software xin gửi anh/chị bảng giá dịch vụ tham khảo:',
+    '- **Landing Page**: Gói Cơ bản từ **1.000.000đ**, Gói Tiêu chuẩn **4.000.000đ**.',
+    '- **Website Giới thiệu Doanh nghiệp**: Gói Cơ bản từ **3.000.000đ**, Gói Tiêu chuẩn **7.000.000đ**.',
+    '- **Website Bán hàng/E-commerce**: Gói Cơ bản từ **5.000.000đ**, Gói Tiêu chuẩn **10.000.000đ**.',
+    '- **Cập nhật & Chăm sóc Website**: Từ **500.000đ/tháng**.',
+    '',
+    'Mức giá trên là giá tham khảo tiêu chuẩn trước khảo sát. Giá chính xác sẽ phụ thuộc vào yêu cầu tính năng cụ thể.',
+    'Anh/chị vui lòng để lại số điện thoại hoặc liên hệ Hotline **(+84) 909 163 821** để nhân viên DUDI Software tư vấn và báo giá chính thức theo nhu cầu ạ.',
+  ].join('\n');
 }
 
 export function getPhoneReceivedHandoffResponse(phone: string): string {

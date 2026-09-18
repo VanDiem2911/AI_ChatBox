@@ -236,6 +236,19 @@ function isProductAttributeInquiry(normalizedMessage: string): boolean {
 }
 
 function isProjectExamplesInquiry(normalizedMessage: string): boolean {
+  // 1. Exclude questions asking how to do something, technical details, adding features, admin, api, or pricing
+  if (
+    /\b(nhu\s*the\s*nao|the\s*nao|ra\s*sao|lam\s*sao|cach\s*nao|cach\s*thuc|huong\s*dan|tinh\s*nang|chuc\s*nang|them\s*chuc\s*nang|quan\s*ly\s*admin|trang\s*admin|admin|goi\s*api|api|tich\s*hop|hoat\s*dong\s*ra\s*sao)\b/.test(
+      normalizedMessage
+    )
+  ) {
+    return false;
+  }
+
+  if (isPricingOrMoneyInquiry(normalizedMessage)) {
+    return false;
+  }
+
   if (
     /\b(quy\s*trinh|cac\s*buoc|gio\s*lam\s*viec|bao\s*hanh|bao\s*tri|tu\s*van|can\s*tu\s*van|muon\s*tu\s*van)\b/.test(normalizedMessage) &&
     !/\b(mau|du\s*an|project|portfolio|case\s*study|tieu\s*bieu)\b/.test(normalizedMessage)
@@ -243,7 +256,7 @@ function isProjectExamplesInquiry(normalizedMessage: string): boolean {
     return false;
   }
 
-  // 1. Direct follow-up asking for different/more examples: "cái khác đi", "khác đi", "dự án khác", "mẫu khác", "xem thêm"
+  // 2. Direct follow-up asking for different/more examples: "cái khác đi", "khác đi", "dự án khác", "mẫu khác", "xem thêm"
   const isOtherOrMore =
     /\b(khac|them|doi)\b/.test(normalizedMessage) &&
     /\b(mau|du\s*an|project|website|web|link|vi\s*du|cai|tiem\s*nang|showroom|phong\s*kham)\b/.test(normalizedMessage);
@@ -254,21 +267,23 @@ function isProjectExamplesInquiry(normalizedMessage: string): boolean {
     return true;
   }
 
-  // 2. Combo of web keyword + domain keyword: "của website bán hàng cơ mà", "website bất động sản", "có làm web luật không"
-  const hasWebWord = /\b(web|website|trang\s*web|du\s*an|project|mau|portfolio|link)\b/.test(normalizedMessage);
-  const hasDomainWord = /\b(bat\s*dong\s*san|nha\s*dat|ban\s*nha|mua\s*nha|cho\s*thue\s*nha|can\s*ho|chung\s*cu|dat\s*nen|bds|o\s*to|xe|du\s*lich|khach\s*san|homestay|thoi\s*trang|quan\s*ao|thuc\s*pham|f\s*b|nha\s*khoa|phong\s*kham|suc\s*khoe|ban\s*hang|media|studio|chup\s*anh|doanh\s*nghiep|luat|luat\s*su|phap\s*luat|xay\s*dung|noi\s*that|decor|logistics|van\s*chuyen|tai\s*chinh|tuyen\s*dung|pet|thu\s*cung)\b/.test(normalizedMessage);
-  
-  if (hasWebWord && hasDomainWord) {
+  // 3. Clear request for project examples / demo links / portfolios
+  const asksForProjectSamples =
+    /\b(cho\s*xem\s*(mau|du\s*an|link|web|website)|co\s*(mau|du\s*an|link|demo)|xem\s*(mau|du\s*an|link|demo)|gui\s*(mau|du\s*an|link)|du\s*an\s*(mau|tieu\s*bieu|da\s*lam|thuc\s*te)|mau\s*(web|website|tham\s*khao)|case\s*study|portfolio|link\s*demo)\b/.test(
+      normalizedMessage
+    );
+
+  if (asksForProjectSamples) {
     return true;
   }
 
   const mentionsWebOrProject =
-    /\b(web|website|trang\s*web|du\s*an|project|mau|portfolio|case\s*study|tham\s*khao|link)\b/.test(normalizedMessage);
+    /\b(du\s*an|project|mau|portfolio|case\s*study|link\s*web|link\s*demo)\b/.test(normalizedMessage);
   const mentionsSpecificDomain =
     /\b(bat\s*dong\s*san|nha\s*dat|ban\s*nha|mua\s*nha|cho\s*thue\s*nha|can\s*ho|chung\s*cu|dat\s*nen|bds|o\s*to|xe|du\s*lich|giao\s*duc|e\s*learning|tuyen\s*dung|tai\s*chinh|khach\s*san|homestay|suc\s*khoe|nha\s*khoa|phong\s*kham|thuc\s*pham|thoi\s*trang|dien\s*may|noi\s*that|booking|ban\s*hang|f\s*b|logistics|xay\s*dung|media|studio|chup\s*anh|doanh\s*nghiep|luat|luat\s*su|phap\s*luat|pet|thu\s*cung)\b/.test(
       normalizedMessage
     );
-  const asksAvailability = /\b(co|cho|xem|gui|can|muon|nao|khong|ko)\b/.test(normalizedMessage);
+  const asksAvailability = /\b(co|cho|xem|gui|xin)\b/.test(normalizedMessage);
 
   if (mentionsWebOrProject && mentionsSpecificDomain && asksAvailability) {
     return true;
@@ -280,19 +295,14 @@ function isProjectExamplesInquiry(normalizedMessage: string): boolean {
 
   // Explicit keywords (exclude color queries like "màu gì", "màu sắc", "màu nền")
   if (
-    /\b(du\s*an|project|portfolio|case\s*study|tieu\s*bieu|tham\s*khao)\b/.test(normalizedMessage) ||
-    (/\bmau\b/.test(normalizedMessage) && !/\bmau\s*(gi|sac|chu|nen|da|mat|toc)\b/.test(normalizedMessage))
+    /\b(project|portfolio|case\s*study|tieu\s*bieu)\b/.test(normalizedMessage) ||
+    (/\bmau\b/.test(normalizedMessage) && !/\bmau\s*(gi|sac|chu|nen|da|mat|toc)\b/.test(normalizedMessage) && /\b(xem|cho|gui|co|web|du\s*an)\b/.test(normalizedMessage))
   ) {
     return true;
   }
 
-  // Short follow-up asking for website examples: "có web không", "cho xem web đi", "web tham khảo"
-  if (/\b(cho\s*xem|co\s*(web|website|link|du\s*an|mau|vi\s*du)|web\s*nao|website\s*nao|vi\s*du|xem\s*them|co\s*link)\b/.test(normalizedMessage)) {
-    return true;
-  }
-
-  // Negation+reference patterns: "không có ... à", "chưa có ví dụ"
-  if (/\b(khong\s*co|chua\s*co)\b.{0,20}\b(web|link|mau|du\s*an|vi\s*du)\b/.test(normalizedMessage)) {
+  // Short follow-up asking for website examples: "có web không", "cho xem web đi"
+  if (/\b(cho\s*xem\s*(web|website)|co\s*(web|website|link|du\s*an|mau)\s*(khong|ko)|co\s*link\s*(khong|ko))\b/.test(normalizedMessage)) {
     return true;
   }
 
@@ -627,6 +637,16 @@ export async function classifyChatIntent(
         /\b(web|website|landing|app|mobile|crm|erp|booking|chatbot|ai|rag|ui\s*ux|cloud|devops|phan\s*mem|he\s*thong)\b/.test(normalizedMessage);
       if (asksForServices) {
         bestIntent = 'service_consultation';
+      }
+    }
+
+    if (bestIntent === 'project_examples') {
+      const isHowToOrFeature =
+        /\b(nhu\s*the\s*nao|the\s*nao|ra\s*sao|lam\s*sao|cach|huong\s*dan|tinh\s*nang|chuc\s*nang|them|admin|api|chi\s*phi|gia)\b/.test(
+          normalizedMessage
+        );
+      if (isHowToOrFeature) {
+        bestIntent = 'rag_answer';
       }
     }
 

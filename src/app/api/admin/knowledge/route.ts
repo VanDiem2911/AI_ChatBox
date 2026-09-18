@@ -3,6 +3,7 @@ import { knowledgeDocumentSchema } from '@/lib/validation/schemas';
 import { KnowledgeService } from '@/features/knowledge/knowledge.service';
 import { getToken } from 'next-auth/jwt';
 
+// Force dynamic route and ensure fresh schema
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {

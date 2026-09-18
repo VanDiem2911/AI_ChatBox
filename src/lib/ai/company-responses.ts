@@ -21,9 +21,9 @@ export function getIdentityResponse(): string {
   return [
     'Xin chào! Tôi là DU - Trợ lý AI tư vấn khách hàng chuyên nghiệp của DUDI Software.',
     '',
-    'Tôi có thể hỗ trợ anh/chị tìm hiểu các dịch vụ như website doanh nghiệp, website bán hàng/e-commerce, mobile app, phần mềm CRM/ERP/booking, UI/UX, AI chatbot/RAG và hạ tầng cloud/devops.',
+    'Tôi có thể hỗ trợ anh/chị tìm hiểu các dịch vụ (Landing Page, Website, Mobile App, CRM/ERP, AI Chatbot...), cung cấp bảng giá tham khảo chi tiết theo tài liệu của công ty và giải đáp mọi thắc mắc kỹ thuật.',
     '',
-    'Với các nội dung cần báo giá hoặc chi phí cụ thể, tôi sẽ xin số điện thoại để nhân viên DUDI liên hệ tư vấn trực tiếp.',
+    'Anh/chị đang cần tư vấn giải pháp hoặc tham khảo chi phí cho dự án nào ạ?',
   ].join('\n');
 }
 

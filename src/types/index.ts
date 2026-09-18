@@ -16,7 +16,7 @@ export type MessageRole = 'USER' | 'ASSISTANT' | 'SYSTEM' | 'AGENT' | 'TOOL';
 export type MessageStatus = 'SENDING' | 'SUCCESS' | 'ERROR';
 
 // Knowledge Document Source & Status
-export type DocumentSourceType = 'TEXT' | 'PDF' | 'FAQ' | 'URL';
+export type DocumentSourceType = 'TEXT' | 'PDF' | 'FAQ' | 'URL' | 'DOCX';
 export type DocumentStatus = 'ACTIVE' | 'INACTIVE' | 'DRAFT';
 
 // Support Ticket Status & Priority

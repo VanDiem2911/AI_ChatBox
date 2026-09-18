@@ -573,43 +573,8 @@ export async function POST(
       });
     }
 
-    if (intent.type === 'service_consultation') {
-      return createPolicyResponse({
-        conversationId,
-        content: await getServiceConsultationResponse(validated.content, memorySummary, recentMsgsPlain, queryVector),
-        model: 'service-consultation',
-        startTime,
-      });
-    }
-
-    if (intent.type === 'project_inspired_consultation') {
-      return createPolicyResponse({
-        conversationId,
-        content: getProjectInspiredConsultationResponse(validated.content),
-        model: 'project-inspired-consultation',
-        startTime,
-      });
-    }
-
-    if (intent.type === 'pricing_handoff') {
+    if (intent.type === 'pricing_handoff' || isPricingOrMoneyInquiry(validated.content)) {
       await ConversationService.markPricingHandoff(conversationId, validated.content);
-
-      return createPolicyResponse({
-        conversationId,
-        content: getPricingHandoffResponse(),
-        model: 'pricing-handoff',
-        startTime,
-      });
-    }
-
-    const contextualMemoryResponse = getContextualMemoryResponse(validated.content, memorySummary);
-    if (contextualMemoryResponse) {
-      return createPolicyResponse({
-        conversationId,
-        content: contextualMemoryResponse,
-        model: 'contextual-memory',
-        startTime,
-      });
     }
 
     if (
@@ -641,103 +606,22 @@ export async function POST(
         });
 
         const phoneReceivedContent = getPhoneReceivedHandoffResponse(customerPhone);
-        const responseTimeMs = Date.now() - startTime;
-        const assistantMsg = await ConversationService.createMessage({
+        return createPolicyResponse({
           conversationId,
-          role: 'ASSISTANT',
           content: phoneReceivedContent,
-          model: 'policy:pricing-phone-received',
-          references: [],
-        });
-
-        await connectToDatabase();
-        await AiUsageLog.create({
-          conversationId,
-          messageId: assistantMsg._id,
-          provider: 'policy',
           model: 'pricing-phone-received',
-          inputTokens: 0,
-          outputTokens: 0,
-          totalTokens: 0,
-          responseTimeMs,
-          success: true,
-        });
-
-        return new Response(phoneReceivedContent, {
-          headers: {
-            'Content-Type': 'text/event-stream; charset=utf-8',
-            'Cache-Control': 'no-cache, no-transform',
-            Connection: 'keep-alive',
-          },
+          startTime,
         });
       }
     }
 
     if (isBusinessDomainsInquiry(validated.content)) {
       const domainsContent = getBusinessDomainsResponse();
-      const responseTimeMs = Date.now() - startTime;
-      const assistantMsg = await ConversationService.createMessage({
+      return createPolicyResponse({
         conversationId,
-        role: 'ASSISTANT',
         content: domainsContent,
-        model: 'policy:business-domains',
-        references: [],
-      });
-
-      await connectToDatabase();
-      await AiUsageLog.create({
-        conversationId,
-        messageId: assistantMsg._id,
-        provider: 'policy',
         model: 'business-domains',
-        inputTokens: 0,
-        outputTokens: 0,
-        totalTokens: 0,
-        responseTimeMs,
-        success: true,
-      });
-
-      return new Response(domainsContent, {
-        headers: {
-          'Content-Type': 'text/event-stream; charset=utf-8',
-          'Cache-Control': 'no-cache, no-transform',
-          Connection: 'keep-alive',
-        },
-      });
-    }
-
-    if (isPricingOrMoneyInquiry(validated.content)) {
-      await ConversationService.markPricingHandoff(conversationId, validated.content);
-
-      const handoffContent = getPricingHandoffResponse();
-      const responseTimeMs = Date.now() - startTime;
-      const assistantMsg = await ConversationService.createMessage({
-        conversationId,
-        role: 'ASSISTANT',
-        content: handoffContent,
-        model: 'policy:pricing-handoff',
-        references: [],
-      });
-
-      await connectToDatabase();
-      await AiUsageLog.create({
-        conversationId,
-        messageId: assistantMsg._id,
-        provider: 'policy',
-        model: 'pricing-handoff',
-        inputTokens: 0,
-        outputTokens: 0,
-        totalTokens: 0,
-        responseTimeMs,
-        success: true,
-      });
-
-      return new Response(handoffContent, {
-        headers: {
-          'Content-Type': 'text/event-stream; charset=utf-8',
-          'Cache-Control': 'no-cache, no-transform',
-          Connection: 'keep-alive',
-        },
+        startTime,
       });
     }
 
@@ -753,7 +637,10 @@ export async function POST(
     const memoryProjectScope = intent.type === 'project_examples' ? getMemoryProjectExampleScope(memorySummary) : null;
     const projectScope = directProjectScope || recentProjectScope || memoryProjectScope;
 
-    if (projectScope) {
+    if (isPricingOrMoneyInquiry(validated.content) || intent.type === 'pricing_handoff') {
+      searchQuery = `${validated.content} nguyên tắc tư vấn bảng giá chi phí dịch vụ DUDI Software`;
+      searchCategories = undefined;
+    } else if (projectScope) {
       searchQuery = projectScope.query;
       projectTopicLabel = projectScope.label;
       searchCategories = projectScope.categories;
@@ -821,8 +708,8 @@ export async function POST(
     }
 
     const relevantChunks = await VectorService.searchSimilarChunks(searchQuery, {
-      topK: intent.type === 'project_examples' ? 10 : 5,
-      similarityThreshold: 0.20,
+      topK: intent.type === 'project_examples' ? 10 : 6,
+      similarityThreshold: 0.15,
       queryVector,
       ...(searchCategories ? { categories: searchCategories } : {}),
     });
@@ -1174,17 +1061,24 @@ Bạn cần tôi hỗ trợ tư vấn thêm thông tin gì không ạ?`;
       let geminiResult;
       let selectedGeminiModel = GEMINI_CHAT_MODEL;
       for (const modelName of GEMINI_FALLBACK_MODELS) {
-        try {
-          const geminiModel = genAI.getGenerativeModel({
-            model: modelName,
-            systemInstruction: systemPrompt,
-          });
-          geminiResult = await geminiModel.generateContentStream({ contents });
-          selectedGeminiModel = modelName;
-          break;
-        } catch (err: any) {
-          console.warn(`[Gemini Model ${modelName} Failed]:`, err.message || err);
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            const geminiModel = genAI.getGenerativeModel({
+              model: modelName,
+              systemInstruction: systemPrompt,
+            });
+            geminiResult = await geminiModel.generateContentStream({ contents });
+            selectedGeminiModel = modelName;
+            break;
+          } catch (err: any) {
+            console.warn(`[Gemini Model ${modelName} Attempt ${attempt + 1} Failed]:`, err.message || err);
+            if (attempt < 2) {
+              const delay = (/429/.test(err.message || '') || /503/.test(err.message || '')) ? 1500 * (attempt + 1) : 800 * (attempt + 1);
+              await new Promise((resolve) => setTimeout(resolve, delay));
+            }
+          }
         }
+        if (geminiResult) break;
       }
 
       if (!geminiResult) {
@@ -1195,12 +1089,16 @@ Bạn cần tôi hỗ trợ tư vấn thêm thông tin gì không ạ?`;
           const isContactOrServiceQuery = /dịch vụ|dich vu|địa chỉ|dia chi|văn phòng|van phong|số điện thoại|so dien thoai|hotline|sđt|sdt|email|liên hệ|lien he|ở đâu|o dau|trụ sở|tru so|liên lạc|lien lac/i.test(userMsgLower);
           const isProjectQuery = /dự án|du an|mẫu|mau|danh mục|danh muc|xem|ô tô|o to|du lịch|du lich|bất động sản|bat dong san|bán hàng|ban hang|studio/i.test(userMsgLower);
 
+          if (isPricingOrMoneyInquiry(validated.content)) {
+            return getPricingHandoffResponse();
+          }
+
           if (isContactOrServiceQuery || (!isProjectQuery && (userMsgLower.includes('dudi') || userMsgLower.includes('công ty')))) {
             return `**CÔNG TY DUDI SOFTWARE** chuyên cung cấp các giải pháp công nghệ và thiết kế website / mobile app chuyên nghiệp:\n\n### 🚀 Các Dịch Vụ Chính Tại DUDI SOFTWARE:\n1. **Phát triển Web & Phần mềm Doanh nghiệp**: Website chuẩn SEO, E-Commerce, Portal, hệ thống ERP/CRM.\n2. **Phát triển Ứng dụng Di động (Mobile App)**: Ứng dụng iOS & Android đa nền tảng.\n3. **Thiết kế UI/UX Chuyên nghiệp**: Giao diện tinh tế, hiện đại, tối ưu trải nghiệm người dùng.\n4. **AI & Chatbot RAG Thông minh**: Tự động hóa tư vấn & chăm sóc khách hàng 24/7.\n5. **Bảo trì & Hỗ trợ Kỹ thuật 24/7**: Đội ngũ trực khẩn cấp 24/7, bảo trì hệ thống định kỳ.\n\n---\n### 📍 Thông Tin Liên Hệ Văn Phòng DUDI SOFTWARE:\n- 🏢 **Địa chỉ 1**: 232 Đường Nguyễn Thị Minh Khai, Phường Xuân Hòa, TP. Hồ Chí Minh\n- 🏢 **Địa chỉ 2**: 49/2 Đường 14, Phường Thủ Đức, TP. Hồ Chí Minh\n- 📞 **Hotline / SĐT**: **(+84) 909 163 821**\n- ✉️ **Email tiếp nhận**: **contact@dudisoftware.com**\n- 🌐 **Website chính thức**: [https://www.dudisoftware.com/](https://www.dudisoftware.com/)\n\nBạn cần tôi tư vấn chi tiết hơn về gói dịch vụ nào hay muốn tham khảo kho 400+ dự án thực tế của DUDI Software không ạ?`;
           }
 
           if (isIdentityQuery) {
-            return `Xin chào! Tôi là Trợ lý AI tư vấn khách hàng chính thức của **DUDI SOFTWARE**.\n\nTôi ở đây để hỗ trợ tư vấn cho bạn các dịch vụ của DUDI Software bao gồm:\n- **Phát triển Web & Phần mềm Doanh nghiệp**\n- **Ứng dụng Di động (Mobile App)** trên iOS & Android\n- **Thiết kế UI/UX** tinh tế, tối ưu trải nghiệm người dùng\n- **AI & Chatbot RAG** tự động hóa chăm sóc khách hàng 24/7\n\nHotline hỗ trợ: (+84) 909 163 821. Bạn cần tôi hỗ trợ thêm thông tin gì không ạ?`;
+            return `Xin chào! Tôi là DU - Trợ lý AI tư vấn khách hàng chính thức của **DUDI SOFTWARE**.\n\nTôi ở đây để hỗ trợ tư vấn cho bạn các dịch vụ của DUDI Software bao gồm:\n- **Thiết kế Website & Landing Page tối ưu chuyển đổi**\n- **Ứng dụng Di động (Mobile App)** trên iOS & Android\n- **Phần mềm quản lý doanh nghiệp (CRM / ERP / Booking)**\n- **Tích hợp API & AI Chatbot RAG 24/7**\n- **Bảng giá tham khảo các gói dịch vụ chuẩn**\n\nHotline hỗ trợ: (+84) 909 163 821. Bạn cần tôi hỗ trợ thêm thông tin gì không ạ?`;
           }
 
           if (relevantChunks.length > 0 && (intent.type === 'project_examples' || /dự án|du an|mẫu|mau|link|ví dụ|vi du|sản phẩm|san pham/i.test(userMsgLower))) {
@@ -1212,7 +1110,19 @@ Bạn cần tôi hỗ trợ tư vấn thêm thông tin gì không ạ?`;
             }
           }
 
-          return 'Dạ, em là DU - Trợ lý AI của DUDI Software. Em có thể giúp gì cho anh/chị hôm nay về dịch vụ thiết kế website, ứng dụng di động hay tư vấn các dự án phần mềm ạ?';
+          if (relevantChunks.length > 0) {
+            const topChunk = relevantChunks[0];
+            const cleanSnippet = topChunk.content.replace(/^#+\s+/gm, '').slice(0, 500);
+            return [
+              `Dạ, về câu hỏi của anh/chị, DUDI Software xin chia sẻ thông tin từ tài liệu **${topChunk.title}**:`,
+              '',
+              cleanSnippet,
+              '',
+              'Anh/chị cần tư vấn giải pháp chi tiết hoặc báo giá dự án, vui lòng để lại số điện thoại hoặc liên hệ Hotline **(+84) 909 163 821** để chuyên viên hỗ trợ ngay ạ!',
+            ].join('\n');
+          }
+
+          return 'Dạ, em là DU - Trợ lý AI của DUDI Software. Em có thể hỗ trợ anh/chị tư vấn về giải pháp kỹ thuật, thiết kế website, ứng dụng di động, tích hợp API hoặc cung cấp bảng giá tham khảo chi tiết ạ!';
         };
 
         const fallbackText = getLocalFallbackText();
