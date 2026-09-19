@@ -4,7 +4,9 @@ const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/smartconsult_a
 const options = {
   serverApi: {
     version: ServerApiVersion.v1,
-    strict: true,
+    // $vectorSearch isn't part of Stable API v1. Keep the API version but
+    // allow Atlas Vector Search aggregation stages used by the chat RAG flow.
+    strict: false,
     deprecationErrors: true,
   },
 };
