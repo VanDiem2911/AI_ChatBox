@@ -48,9 +48,24 @@ export const ChatGPTMessageItem: React.FC<ChatGPTMessageItemProps> = ({
 
           {/* Content Body */}
           <div className="flex-1 min-w-0 text-[#ececec] text-sm leading-relaxed space-y-3">
-            <div className={isStreaming ? 'typing-cursor' : ''}>
-              <MarkdownRenderer content={message.content || ''} />
-            </div>
+            {isStreaming && !message.content ? (
+              <div
+                role="status"
+                aria-live="polite"
+                className="inline-flex items-center gap-2 py-1 text-[#b4b4b4]"
+              >
+                <span>Đang suy nghĩ</span>
+                <span className="flex items-center gap-1" aria-hidden="true">
+                  <span className="h-1.5 w-1.5 rounded-full bg-brand-400 animate-bounce [animation-delay:-0.3s]" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-brand-400 animate-bounce [animation-delay:-0.15s]" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-brand-400 animate-bounce" />
+                </span>
+              </div>
+            ) : (
+              <div className={isStreaming ? 'typing-cursor' : ''}>
+                <MarkdownRenderer content={message.content || ''} />
+              </div>
+            )}
 
             {/* Render Error State if any */}
             {message.status === 'ERROR' && (
