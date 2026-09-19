@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ThumbsUp, ThumbsDown, Copy, Check, RotateCcw, BookOpen, AlertTriangle } from 'lucide-react';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { IMessageDocument } from '@/types';
@@ -12,6 +12,12 @@ interface ChatGPTMessageItemProps {
   onRetry?: () => void;
 }
 
+const WAITING_MESSAGES = [
+  'Đang suy nghĩ',
+  'Đang tìm thông tin phù hợp',
+  'Đang soạn câu trả lời, đợi mình chút nhé',
+] as const;
+
 export const ChatGPTMessageItem: React.FC<ChatGPTMessageItemProps> = ({
   message,
   isStreaming = false,
@@ -20,6 +26,22 @@ export const ChatGPTMessageItem: React.FC<ChatGPTMessageItemProps> = ({
   const isUser = message.role === 'USER';
   const [copied, setCopied] = useState(false);
   const [rated, setRated] = useState<'UP' | 'DOWN' | null>(null);
+  const [waitingMessageIndex, setWaitingMessageIndex] = useState(0);
+
+  useEffect(() => {
+    if (!isStreaming || message.content) {
+      setWaitingMessageIndex(0);
+      return;
+    }
+
+    const searchTimer = window.setTimeout(() => setWaitingMessageIndex(1), 2200);
+    const composeTimer = window.setTimeout(() => setWaitingMessageIndex(2), 5000);
+
+    return () => {
+      window.clearTimeout(searchTimer);
+      window.clearTimeout(composeTimer);
+    };
+  }, [isStreaming, message.content]);
 
   const handleCopy = () => {
     if (message.content) {
@@ -54,7 +76,7 @@ export const ChatGPTMessageItem: React.FC<ChatGPTMessageItemProps> = ({
                 aria-live="polite"
                 className="inline-flex items-center gap-2 py-1 text-[#b4b4b4]"
               >
-                <span>Đang suy nghĩ</span>
+                <span>{WAITING_MESSAGES[waitingMessageIndex]}</span>
                 <span className="flex items-center gap-1" aria-hidden="true">
                   <span className="h-1.5 w-1.5 rounded-full bg-brand-400 animate-bounce [animation-delay:-0.3s]" />
                   <span className="h-1.5 w-1.5 rounded-full bg-brand-400 animate-bounce [animation-delay:-0.15s]" />
