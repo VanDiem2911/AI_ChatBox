@@ -45,6 +45,9 @@ import AiUsageLog from '@/models/AiUsageLog';
 import { connectToDatabase } from '@/lib/mongodb/mongoose';
 
 export const dynamic = 'force-dynamic';
+// ✅ Next.js App Router: phải export maxDuration trong route file
+// Vercel Hobby: tối đa 60s | Vercel Pro: tối đa 300s
+export const maxDuration = 60;
 
 type ProjectExampleScope = {
   label: string;
@@ -81,11 +84,28 @@ async function createPolicyResponse(params: {
     }).catch((err) => console.error('[AiUsageLog Policy Error]:', err));
   }).catch((err) => console.error('[createMessage Policy Error]:', err));
 
-  return new Response(params.content, {
+  // ✅ Stream text từng chunk thay vì trả 1 lần - tránh bị proxy cắt kết nối
+  const encoder = new TextEncoder();
+  const text = params.content;
+  const stream = new ReadableStream({
+    async start(controller) {
+      // Gửi từng chunk 100 ký tự
+      const CHUNK_SIZE = 100;
+      for (let i = 0; i < text.length; i += CHUNK_SIZE) {
+        controller.enqueue(encoder.encode(text.slice(i, i + CHUNK_SIZE)));
+        // Nhường thread để không block, giúp stream flush ngay
+        await new Promise((r) => setTimeout(r, 0));
+      }
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
     headers: {
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache, no-transform',
       Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no', // ✅ Tắt buffering trên nginx/Vercel proxy
     },
   });
 }
@@ -1276,6 +1296,7 @@ Bạn cần tôi hỗ trợ tư vấn thêm thông tin gì không ạ?`;
         'Content-Type': 'text/event-stream; charset=utf-8',
         'Cache-Control': 'no-cache, no-transform',
         Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no', // ✅ Tắt nginx/Vercel proxy buffering
       },
     });
   } catch (error: any) {
