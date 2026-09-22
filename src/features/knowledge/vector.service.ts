@@ -34,6 +34,7 @@ export class VectorService {
   /**
    * Truy vấn Semantic Vector Search bằng MongoDB Atlas $vectorSearch
    * Có cơ chế fallback Cosine Similarity in-memory khi chạy ở môi trường Local dev chưa có Atlas Vector Search Index.
+   * ✅ Đã tối ưu N+1 query: batch load KnowledgeDocument thay vì query từng cái một
    */
   static async searchSimilarChunks(
     queryText: string,
@@ -96,18 +97,26 @@ export class VectorService {
 
       if (atlasResults && atlasResults.length > 0) {
         await connectToDatabase();
-        const results: VectorSearchResult[] = [];
-        for (const item of atlasResults) {
-          const doc = await KnowledgeDocument.findById(item.documentId).lean();
-          results.push({
+
+        // ✅ Batch load tất cả documents 1 lần thay vì N queries
+        const docIds = [...new Set(atlasResults.map((item) => item.documentId?.toString()).filter(Boolean))];
+        const docs = await KnowledgeDocument.find({ _id: { $in: docIds } })
+          .select('_id title')
+          .lean();
+        const docMap = new Map(docs.map((d) => [d._id.toString(), d]));
+
+        const results: VectorSearchResult[] = atlasResults.map((item) => {
+          const doc = docMap.get(item.documentId?.toString());
+          return {
             chunkId: item._id.toString(),
-            documentId: item.documentId.toString(),
+            documentId: item.documentId?.toString() ?? '',
             title: doc?.title || 'Tài liệu kiến thức',
             content: item.content,
             category: item.category || 'Chung',
             score: item.score,
-          });
-        }
+          };
+        });
+
         return results;
       }
     } catch (atlasError) {
@@ -128,6 +137,13 @@ export class VectorService {
       dbFilter.category = options.category;
     }
     const activeChunks = await KnowledgeChunk.find(dbFilter).lean();
+
+    // ✅ Batch load tất cả documents 1 lần - FIX N+1 QUERY (trước đây: N queries trong vòng lặp)
+    const allDocIds = [...new Set(activeChunks.map((c) => c.documentId?.toString()).filter(Boolean))];
+    const allDocs = await KnowledgeDocument.find({ _id: { $in: allDocIds } })
+      .select('_id title tags')
+      .lean();
+    const allDocMap = new Map(allDocs.map((d) => [d._id.toString(), d]));
 
     const STOP_WORDS = new Set([
       'bạn', 'ban', 'cho', 'mình', 'minh', 'xin', 'của', 'cua', 'và', 'va', 'có', 'co',
@@ -154,9 +170,10 @@ export class VectorService {
     for (const chunk of activeChunks) {
       let score = this.cosineSimilarity(queryVector, chunk.embedding);
 
-      const doc = await KnowledgeDocument.findById(chunk.documentId).lean();
+      // ✅ Lấy từ map thay vì query DB - O(1) thay vì O(N×DB_round_trip)
+      const doc = allDocMap.get(chunk.documentId?.toString());
       const docTitleRaw = doc?.title || '';
-      const docTagsRaw = (doc?.tags || []).join(' ');
+      const docTagsRaw = ((doc as any)?.tags || []).join(' ');
       const categoryRaw = chunk.category || '';
 
       const chunkTextNorm = normVi(
@@ -182,7 +199,7 @@ export class VectorService {
       if (score >= 0.15 || keywordHits > 0) {
         scoredChunks.push({
           chunkId: chunk._id.toString(),
-          documentId: chunk.documentId.toString(),
+          documentId: chunk.documentId?.toString() ?? '',
           title: doc?.title || 'Tài liệu kiến thức',
           content: chunk.content,
           category: chunk.category,
@@ -197,10 +214,10 @@ export class VectorService {
     // Final fallback: If no chunks hit threshold, return top chunks from db
     if (scoredChunks.length === 0 && activeChunks.length > 0) {
       for (const chunk of activeChunks.slice(0, topK)) {
-        const doc = await KnowledgeDocument.findById(chunk.documentId).lean();
+        const doc = allDocMap.get(chunk.documentId?.toString());
         scoredChunks.push({
           chunkId: chunk._id.toString(),
-          documentId: chunk.documentId.toString(),
+          documentId: chunk.documentId?.toString() ?? '',
           title: doc?.title || 'Tài liệu kiến thức',
           content: chunk.content,
           category: chunk.category,

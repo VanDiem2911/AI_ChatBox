@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:website-conversation": "node src/scripts/test-website-consultation-conversation.js"
+    "test:website-conversation": "node src/scripts/test-website-consultation-conversation.js",
+    "db:indexes": "npx ts-node -e \"require('./src/scripts/create-indexes.ts')\""
   },
   "dependencies": {
     "@ai-sdk/openai": "^0.0.39",

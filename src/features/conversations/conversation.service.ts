@@ -22,7 +22,10 @@ export class ConversationService {
       conversation = await Conversation.findOne({
         anonymousSessionId,
         status: 'AI_ACTIVE',
-      }).sort({ lastMessageAt: -1 });
+      })
+        .select('_id anonymousSessionId userId title status summary memorySummary lastMessageAt')
+        .sort({ lastMessageAt: -1 })
+        .lean();
     }
 
     if (!conversation) {
@@ -44,6 +47,7 @@ export class ConversationService {
   static async getConversationsBySession(anonymousSessionId: string, limit = 30) {
     await connectToDatabase();
     return Conversation.find({ anonymousSessionId })
+      .select('_id title status summary lastMessageAt createdAt')
       .sort({ lastMessageAt: -1 })
       .limit(limit)
       .lean();
@@ -51,10 +55,12 @@ export class ConversationService {
 
   /**
    * Lấy lịch sử messages của Conversation (trả về limit tin nhắn gần nhất theo thứ tự thời gian)
+   * ✅ Chỉ select các field cần thiết để giảm network payload
    */
   static async getMessages(conversationId: string, limit = 20) {
     await connectToDatabase();
     const messages = await Message.find({ conversationId })
+      .select('_id conversationId role content model references createdAt')
       .sort({ createdAt: -1 })
       .limit(limit)
       .lean();
@@ -62,9 +68,14 @@ export class ConversationService {
     return messages.reverse();
   }
 
+  /**
+   * ✅ Chỉ select các field cần thiết để classify intent và build prompt
+   */
   static async getConversation(conversationId: string) {
     await connectToDatabase();
-    return Conversation.findById(conversationId).lean();
+    return Conversation.findById(conversationId)
+      .select('_id status title summary memorySummary anonymousSessionId lastMessageAt')
+      .lean();
   }
 
   static async updateMemorySummary(conversationId: string, memorySummary: string) {
@@ -114,7 +125,7 @@ export class ConversationService {
   }
 
   /**
-   * ÄÃ¡nh dáº¥u cuá»™c trÃ² chuyá»‡n cáº§n nhÃ¢n viÃªn tÆ° váº¥n bÃ¡o giÃ¡.
+   * Đánh dấu cuộc trò chuyện cần nhân viên tư vấn báo giá.
    */
   static async markPricingHandoff(conversationId: string, customerMessage: string) {
     await connectToDatabase();

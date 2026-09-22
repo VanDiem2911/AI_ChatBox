@@ -59,26 +59,27 @@ async function createPolicyResponse(params: {
   startTime: number;
 }) {
   const responseTimeMs = Date.now() - params.startTime;
-  const assistantMsg = await ConversationService.createMessage({
+
+  // ✅ Fire-and-forget: không block response để save DB
+  ConversationService.createMessage({
     conversationId: params.conversationId,
     role: 'ASSISTANT',
     content: params.content,
     model: `policy:${params.model}`,
     references: [],
-  });
-
-  await connectToDatabase();
-  await AiUsageLog.create({
-    conversationId: params.conversationId,
-    messageId: assistantMsg._id,
-    provider: 'policy',
-    model: params.model,
-    inputTokens: 0,
-    outputTokens: 0,
-    totalTokens: 0,
-    responseTimeMs,
-    success: true,
-  });
+  }).then((assistantMsg) => {
+    AiUsageLog.create({
+      conversationId: params.conversationId,
+      messageId: assistantMsg._id,
+      provider: 'policy',
+      model: params.model,
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+      responseTimeMs,
+      success: true,
+    }).catch((err) => console.error('[AiUsageLog Policy Error]:', err));
+  }).catch((err) => console.error('[createMessage Policy Error]:', err));
 
   return new Response(params.content, {
     headers: {
@@ -474,16 +475,19 @@ export async function POST(
       );
     }
 
-    // 2. Save User Message to MongoDB
-    await ConversationService.createMessage({
-      conversationId,
-      role: 'USER',
-      content: validated.content,
-    });
+    // ✅ Parallel: Save user message + fetch conversation + fetch history đồng thời
+    const [, conversation, history] = await Promise.all([
+      ConversationService.createMessage({
+        conversationId,
+        role: 'USER',
+        content: validated.content,
+      }),
+      ConversationService.getConversation(conversationId),
+      ConversationService.getMessages(conversationId, 15), // 15 đủ cho cả intent (10) và AI context (15)
+    ]);
 
-    const conversation = await ConversationService.getConversation(conversationId);
-    const recentMessages = await ConversationService.getMessages(conversationId, 10);
-    const recentMsgsPlain = recentMessages.map(m => ({ role: m.role as 'USER' | 'ASSISTANT', content: m.content }));
+    // Dùng 10 messages gần nhất để classify intent
+    const recentMsgsPlain = history.slice(-10).map(m => ({ role: m.role as 'USER' | 'ASSISTANT', content: m.content }));
 
     if (isOffTopicInquiry(validated.content)) {
       return createPolicyResponse({
@@ -494,6 +498,7 @@ export async function POST(
       });
     }
 
+    // ✅ Parallel: generateEmbedding + classifyIntent (embedding cần xong trước intent nên giữ tuần tự)
     const queryVector = await generateEmbedding(validated.content);
 
     const intent = await classifyChatIntent(validated.content, {
@@ -510,7 +515,9 @@ export async function POST(
     });
 
     if (memorySummary && memorySummary !== conversation?.memorySummary) {
-      await ConversationService.updateMemorySummary(conversationId, memorySummary);
+      // ✅ Fire-and-forget memory update - không block flow chính
+      ConversationService.updateMemorySummary(conversationId, memorySummary)
+        .catch((err) => console.error('[updateMemorySummary Error]:', err));
     }
 
     if (intent.type === 'pricing_phone_received' && intent.phone) {
@@ -725,9 +732,7 @@ export async function POST(
       score: item.score,
     }));
 
-    // Load recent history early (last 15 messages)
-    const history = await ConversationService.getMessages(conversationId, 15);
-
+    // ✅ history đã được load song song ở bước đầu - không cần load lại
     if (intent.type === 'project_examples') {
       const projectsList = extractProjectsFromKnowledge(relevantChunks, searchQuery, 15);
       const shownProjectKeys = getShownProjectKeys(history);
@@ -1005,27 +1010,27 @@ Bạn cần tôi hỗ trợ tư vấn thêm thông tin gì không ạ?`;
 
           controller.close();
 
+          // ✅ Fire-and-forget: save message + log sau khi stream đã close
           const responseTimeMs = Date.now() - startTime;
-          const assistantMsg = await ConversationService.createMessage({
+          ConversationService.createMessage({
             conversationId,
             role: 'ASSISTANT',
             content: fullAssistantContent,
             model: activeModelName,
             references,
-          });
-
-          await connectToDatabase();
-          await AiUsageLog.create({
-            conversationId,
-            messageId: assistantMsg._id,
-            provider: activeProvider,
-            model: activeModelName,
-            inputTokens: 0,
-            outputTokens: 0,
-            totalTokens: 0,
-            responseTimeMs,
-            success: true,
-          });
+          }).then((assistantMsg) => {
+            AiUsageLog.create({
+              conversationId,
+              messageId: assistantMsg._id,
+              provider: activeProvider,
+              model: activeModelName,
+              inputTokens: 0,
+              outputTokens: 0,
+              totalTokens: 0,
+              responseTimeMs,
+              success: true,
+            }).catch((err) => console.error('[AiUsageLog Ollama Error]:', err));
+          }).catch((err) => console.error('[createMessage Ollama Error]:', err));
         },
       });
     } else if (useGemini) {
@@ -1136,27 +1141,27 @@ Bạn cần tôi hỗ trợ tư vấn thêm thông tin gì không ạ?`;
             }
             controller.close();
 
+            // ✅ Fire-and-forget
             const responseTimeMs = Date.now() - startTime;
-            const assistantMsg = await ConversationService.createMessage({
+            ConversationService.createMessage({
               conversationId,
               role: 'ASSISTANT',
               content: fallbackText,
               model: 'gemini-fallback',
               references,
-            });
-
-            await connectToDatabase();
-            await AiUsageLog.create({
-              conversationId,
-              messageId: assistantMsg._id,
-              provider: activeProvider,
-              model: 'gemini-fallback',
-              inputTokens: 0,
-              outputTokens: 0,
-              totalTokens: 0,
-              responseTimeMs,
-              success: true,
-            });
+            }).then((assistantMsg) => {
+              AiUsageLog.create({
+                conversationId,
+                messageId: assistantMsg._id,
+                provider: activeProvider,
+                model: 'gemini-fallback',
+                inputTokens: 0,
+                outputTokens: 0,
+                totalTokens: 0,
+                responseTimeMs,
+                success: true,
+              }).catch((err) => console.error('[AiUsageLog GeminiFallback Error]:', err));
+            }).catch((err) => console.error('[createMessage GeminiFallback Error]:', err));
           },
         });
       } else {
@@ -1172,27 +1177,27 @@ Bạn cần tôi hỗ trợ tư vấn thêm thông tin gì không ạ?`;
               }
               controller.close();
 
+              // ✅ Fire-and-forget
               const responseTimeMs = Date.now() - startTime;
-              const assistantMsg = await ConversationService.createMessage({
+              ConversationService.createMessage({
                 conversationId,
                 role: 'ASSISTANT',
                 content: fullAssistantContent,
                 model: selectedGeminiModel,
                 references,
-              });
-
-              await connectToDatabase();
-              await AiUsageLog.create({
-                conversationId,
-                messageId: assistantMsg._id,
-                provider: activeProvider,
-                model: selectedGeminiModel,
-                inputTokens: 0,
-                outputTokens: 0,
-                totalTokens: 0,
-                responseTimeMs,
-                success: true,
-              });
+              }).then((assistantMsg) => {
+                AiUsageLog.create({
+                  conversationId,
+                  messageId: assistantMsg._id,
+                  provider: activeProvider,
+                  model: selectedGeminiModel,
+                  inputTokens: 0,
+                  outputTokens: 0,
+                  totalTokens: 0,
+                  responseTimeMs,
+                  success: true,
+                }).catch((err) => console.error('[AiUsageLog Gemini Error]:', err));
+              }).catch((err) => console.error('[createMessage Gemini Error]:', err));
             } catch (streamError: any) {
               console.error('[Gemini Stream Processing Error]:', streamError);
               controller.error(streamError);
@@ -1236,27 +1241,27 @@ Bạn cần tôi hỗ trợ tư vấn thêm thông tin gì không ạ?`;
             }
             controller.close();
 
+            // ✅ Fire-and-forget
             const responseTimeMs = Date.now() - startTime;
-            const assistantMsg = await ConversationService.createMessage({
+            ConversationService.createMessage({
               conversationId,
               role: 'ASSISTANT',
               content: fullAssistantContent,
               model: activeModelName,
               references,
-            });
-
-            await connectToDatabase();
-            await AiUsageLog.create({
-              conversationId,
-              messageId: assistantMsg._id,
-              provider: activeProvider,
-              model: activeModelName,
-              inputTokens: 0,
-              outputTokens: 0,
-              totalTokens: 0,
-              responseTimeMs,
-              success: true,
-            });
+            }).then((assistantMsg) => {
+              AiUsageLog.create({
+                conversationId,
+                messageId: assistantMsg._id,
+                provider: activeProvider,
+                model: activeModelName,
+                inputTokens: 0,
+                outputTokens: 0,
+                totalTokens: 0,
+                responseTimeMs,
+                success: true,
+              }).catch((err) => console.error('[AiUsageLog OpenAI Error]:', err));
+            }).catch((err) => console.error('[createMessage OpenAI Error]:', err));
           } catch (streamError: any) {
             console.error('[OpenAI Stream Processing Error]:', streamError);
             controller.error(streamError);
