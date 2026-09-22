@@ -1031,6 +1031,12 @@ Bạn cần tôi hỗ trợ tư vấn thêm thông tin gì không ạ?`;
 
           controller.close();
 
+          // ✅ Guard: chỉ save khi có nội dung - tránh validation error
+          if (!fullAssistantContent.trim()) {
+            console.warn('[Ollama Stream] Empty content, skipping save.');
+            return;
+          }
+
           // ✅ Fire-and-forget: save message + log sau khi stream đã close
           const responseTimeMs = Date.now() - startTime;
           ConversationService.createMessage({
@@ -1167,6 +1173,12 @@ Bạn cần tôi hỗ trợ tư vấn thêm thông tin gì không ạ?`;
             }
             controller.close();
 
+            // ✅ Guard: chỉ save khi có nội dung
+            if (!fallbackText.trim()) {
+              console.warn('[GeminiFallback] Empty fallback text, skipping save.');
+              return;
+            }
+
             // ✅ Fire-and-forget
             const responseTimeMs = Date.now() - startTime;
             ConversationService.createMessage({
@@ -1280,6 +1292,12 @@ Bạn cần tôi hỗ trợ tư vấn thêm thông tin gì không ạ?`;
               }
             }
             controller.close();
+
+            // ✅ Guard: chỉ save khi có nội dung
+            if (!fullAssistantContent.trim()) {
+              console.warn('[OpenAI Stream] Empty content, skipping save.');
+              return;
+            }
 
             // ✅ Fire-and-forget
             const responseTimeMs = Date.now() - startTime;
