@@ -964,11 +964,12 @@ Bạn cần tôi hỗ trợ tư vấn thêm thông tin gì không ạ?`;
                   contents.shift();
                 }
 
-                if (contents.length === 0) {
-                  contents.push({
-                    role: 'user',
-                    parts: [{ text: validated.content }],
-                  });
+                // ✅ FIX RACE CONDITION: đảm bảo cuối luôn là user turn
+                const lastFallbackItem = contents[contents.length - 1];
+                if (!lastFallbackItem || lastFallbackItem.role !== 'user') {
+                  contents.push({ role: 'user', parts: [{ text: validated.content }] });
+                } else if (!lastFallbackItem.parts[0].text.includes(validated.content.slice(0, 50))) {
+                  contents.push({ role: 'user', parts: [{ text: validated.content }] });
                 }
 
                 for (const modelName of GEMINI_FALLBACK_MODELS) {
@@ -1076,11 +1077,16 @@ Bạn cần tôi hỗ trợ tư vấn thêm thông tin gì không ạ?`;
         contents.shift();
       }
 
-      if (contents.length === 0) {
-        contents.push({
-          role: 'user',
-          parts: [{ text: validated.content }],
-        });
+      // ✅ FIX RACE CONDITION: Promise.all fetch history và createMessage(USER) chạy đồng thời
+      // nên history có thể chưa chứa user message mới nhất.
+      // Gemini yêu cầu conversation LUÔN kết thúc bằng 'user' turn - đảm bảo điều này.
+      const lastGeminiItem = contents[contents.length - 1];
+      if (!lastGeminiItem || lastGeminiItem.role !== 'user') {
+        // History kông có user message mới → thêm vào
+        contents.push({ role: 'user', parts: [{ text: validated.content }] });
+      } else if (!lastGeminiItem.parts[0].text.includes(validated.content.slice(0, 50))) {
+        // User message mới chưa ở cuối → thêm vào
+        contents.push({ role: 'user', parts: [{ text: validated.content }] });
       }
 
       let geminiResult;
@@ -1197,6 +1203,12 @@ Bạn cần tôi hỗ trợ tư vấn thêm thông tin gì không ạ?`;
               }
               controller.close();
 
+              // ✅ Guard: chỉ save khi có nội dung (tránh validation error khi Gemini trả empty)
+              if (!fullAssistantContent.trim()) {
+                console.warn('[Gemini Stream] Empty content received, skipping save.');
+                return;
+              }
+
               // ✅ Fire-and-forget
               const responseTimeMs = Date.now() - startTime;
               ConversationService.createMessage({
@@ -1240,6 +1252,14 @@ Bạn cần tôi hỗ trợ tư vấn thêm thông tin gì không ạ?`;
             content: msg.content,
           });
         }
+      }
+
+      // ✅ FIX RACE CONDITION: đảm bảo openAiMessages luôn kết thúc bằng user message
+      const lastOaiMsg = openAiMessages[openAiMessages.length - 1];
+      if (!lastOaiMsg || lastOaiMsg.role !== 'user') {
+        openAiMessages.push({ role: 'user', content: validated.content });
+      } else if (!lastOaiMsg.content.includes(validated.content.slice(0, 50))) {
+        openAiMessages.push({ role: 'user', content: validated.content });
       }
 
       const openAiResponse = await openai.chat.completions.create({
